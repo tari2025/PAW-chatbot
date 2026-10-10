@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informasi - Medi-Chat</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="../homepage.html" class="logo-container">
+                <img class="logo" src="../assets/logo.png" alt="Medi-Chat Logo">
+                <div class="logo-text">
+                    <h4>Puskesmas</h4>
+                    <p>Sehat pilihan kita</p>
+                </div>
+            </a>
+            <!-- Tombol hamburger (buat tampilan responsif) -->
+            <input type="checkbox" id="menu-toggle" class="menu-toggle">
+            <label for="menu-toggle" class="hamburger" aria-label="Buka menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </label>
+
+            <ul class="nav-links">
+                <li class="home"><a href="../homepage.html">Home</a></li>
+                <li class="informasi">
+                    <a >Informasi</a>
+                    <ul class="dropdown-info">
+                        <li><a href="informasi.html#pendaftaran">Pendaftaran</a></li>
+                        <li><a href="informasi.html#jadwal">Jadwal Layanan</a></li>
+                        <li><a href="informasi.html#biaya">Biaya Rawat</a></li>
+                    </ul>
+                </li>
+                <li class="mindichat"><a href="medichat.html">Medi-Chat</a></li>
+                <li class="tentang"><a href="landing-page.html">Tentang Jurnal</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="page-banner">
+        <h1>Informasi Layanan Puskesmas</h1>
+        <p>Prosedur pendaftaran, jadwal layanan, dan biaya rawat</p>
+    </section>
+
+    <main class="page-content">
+
+        <section id="pendaftaran" class="info-section">
+            <h2>Prosedur Pendaftaran</h2>
+            <div class="info-grid">
+                <article class="info-card">
+                    <h3>Pasien BPJS</h3>
+                    <ol id="list-bpjs">
+                        <li>Siapkan KTP/KK atau kartu identitas lain yang berlaku, dan kartu BPJS.</li>
+                        <li>Datang ke loket pendaftaran. Petugas menanyakan apakah Anda memiliki kartu BPJS.</li>
+                        <li>Petugas memeriksa status kepesertaan dan mencatat kunjungan di aplikasi.</li>
+                    </ol>
+                </article>
+                <article class="info-card">
+                    <h3>Pasien Umum</h3>
+                    <ol id="list-umum">
+                        <li>Siapkan KTP/KK atau kartu identitas lain yang berlaku.</li>
+                        <li>Petugas mencatat Anda sebagai pasien umum, lalu membuatkan Rekam Medik dan Kartu Identitas Berobat (untuk pasien baru).</li>
+                        <li>Petugas membuatkan tanda bukti pelayanan seperti retribusi.</li>
+                        <li>Bayar biaya administrasi, lalu kembali ke bagian pendaftaran.</li>
+                    </ol>
+                </article>
+            </div>
+        </section>
+
+        <section id="jadwal" class="info-section">
+            <h2>Jadwal Layanan</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Layanan</th><th>Hari</th><th>Jam</th></tr>
+                    </thead>
+                    <tbody id="tbody-jadwal">
+                        <tr><td>Dokter Umum</td><td>Senin - Sabtu</td><td>08.00 - 14.00</td></tr>
+                        <tr><td>Dokter Gigi</td><td>Senin - Kamis</td><td>08.00 - 12.00</td></tr>
+                        <tr><td>Imunisasi</td><td>Rabu</td><td>08.00 - 11.00</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="note" id="note-jadwal"></p>
+        </section>
+
+        <section id="biaya" class="info-section">
+            <h2>Biaya Rawat</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Layanan</th><th>Pasien Umum</th><th>Pasien BPJS</th></tr>
+                    </thead>
+                    <tbody id="tbody-biaya">
+                        <tr><td>Rawat Jalan</td><td>Rp 15.000</td><td>Ditanggung BPJS</td></tr>
+                        <tr><td>Rawat Inap (per hari)</td><td>Rp 150.000</td><td>Ditanggung BPJS</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="note" id="note-biaya"></p>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <p>&copy; 2026 Kelompok 3 - Tugas Mata Kuliah Pengembangan Aplikasi Web (TI-501)</p>
+        <p class="admin-link"><a href="admin.html">Login Admin</a></p>
+    </footer>
+
+    <!-- Isi halaman diambil dari data yang dikelola di halaman admin -->
+    <script src="../js/data.js"></script>
+    <script>
+        (function () {
+            var d = window.MediChatData.load();
+
+            function isi(listSel, items) {
+                var ol = document.querySelector(listSel);
+                ol.innerHTML = '';
+                items.forEach(function (t) {
+                    var li = document.createElement('li');
+                    li.textContent = t;
+                    ol.appendChild(li);
+                });
+            }
+
+            function tabel(sel, rows, fields) {
+                var tb = document.querySelector(sel);
+                tb.innerHTML = '';
+                rows.forEach(function (r) {
+                    var tr = document.createElement('tr');
+                    fields.forEach(function (f) {
+                        var td = document.createElement('td');
+                        td.textContent = r[f];
+                        tr.appendChild(td);
+                    });
+                    tb.appendChild(tr);
+                });
+            }
+
+            isi('#list-bpjs', d.pendaftaran.bpjs);
+            isi('#list-umum', d.pendaftaran.umum);
+            tabel('#tbody-jadwal', d.jadwal, ['layanan', 'hari', 'jam']);
+            tabel('#tbody-biaya', d.biaya, ['layanan', 'umum', 'bpjs']);
+            document.getElementById('note-jadwal').textContent = d.catatanJadwal;
+            document.getElementById('note-biaya').textContent = d.catatanBiaya;
+        })();
+    </script>
+</body>
+</html>

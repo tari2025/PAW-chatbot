@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Kelola Chatbot AI - Admin Puskesmas</title>
+
+    <link rel="stylesheet" href="../css/style.css" />
+
+    <style>
+      body {
+        margin: 0;
+        background: #f1f7f5;
+        font-family: Arial, sans-serif;
+      }
+
+      .container-chatbot {
+        max-width: 1150px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+
+      .header-chatbot {
+        margin-bottom: 25px;
+      }
+
+      .header-chatbot h1 {
+        color: #287c7e;
+        margin-bottom: 8px;
+      }
+
+      .header-chatbot p {
+        color: #666;
+      }
+
+      .kembali {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: #287c7e;
+        text-decoration: none;
+        font-weight: bold;
+      }
+
+      /* SEARCH + TAMBAH */
+
+      .toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .search-box {
+        flex: 1;
+        position: relative;
+      }
+
+      .search-box input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 14px 18px 14px 45px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        font-size: 15px;
+        background: white;
+      }
+
+      .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 13px;
+        font-size: 18px;
+      }
+
+      .btn-tambah {
+        background: #287c7e;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0 22px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: bold;
+      }
+
+      .btn-tambah:hover {
+        background: #20696b;
+      }
+
+      /* FORM */
+
+      .form-container {
+        display: none;
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 25px;
+      }
+
+      .form-container.active {
+        display: block;
+      }
+
+      .form-container h2 {
+        color: #287c7e;
+        margin-top: 0;
+      }
+
+      .form-group {
+        margin-bottom: 18px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 15px;
+        font-family: inherit;
+      }
+
+      .form-group textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .form-buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      .btn-simpan {
+        background: #287c7e;
+        color: white;
+        border: none;
+        padding: 11px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      .btn-batal {
+        background: #777;
+        color: white;
+        border: none;
+        padding: 11px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      /* TABLE */
+
+      .table-container {
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        overflow-x: auto;
+      }
+
+      .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .table-header h2 {
+        color: #287c7e;
+        margin: 0;
+      }
+
+      #jumlah-data {
+        color: #666;
+        font-size: 14px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 14px;
+        border-bottom: 1px solid #eee;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #287c7e;
+        color: white;
+      }
+
+      tr:hover {
+        background: #f8fbfa;
+      }
+
+      .kategori {
+        display: inline-block;
+        background: #e2f3f1;
+        color: #287c7e;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: bold;
+      }
+
+      .aksi {
+        white-space: nowrap;
+      }
+
+      .btn-edit {
+        background: #f0ad4e;
+        color: #222;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-right: 5px;
+      }
+
+      .btn-hapus {
+        background: #e94444;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      .kosong {
+        text-align: center;
+        color: #777;
+        padding: 30px;
+      }
+
+      @media (max-width: 700px) {
+        .container-chatbot {
+          margin: 20px auto;
+          padding: 15px;
+        }
+
+        .toolbar {
+          flex-direction: column;
+        }
+
+        .btn-tambah {
+          padding: 13px;
+        }
+
+        .table-container {
+          padding: 15px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container-chatbot">
+      <a href="admin.html" class="kembali"> ← Kembali ke Dashboard Admin </a>
+
+      <div class="header-chatbot">
+        <h1>🤖 Kelola Chatbot AI</h1>
+
+        <p>
+          Kelola data pengetahuan yang digunakan oleh Chatbot AI untuk
+          memberikan informasi kepada pengguna.
+        </p>
+      </div>
+
+      <!-- SEARCH + TAMBAH -->
+
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Cari judul, kategori, atau deskripsi..."
+          />
+        </div>
+
+        <button class="btn-tambah" onclick="bukaFormTambah()">
+          + Tambah Data
+        </button>
+      </div>
+
+      <!-- FORM -->
+
+      <div class="form-container" id="formContainer">
+        <h2 id="formTitle">Tambah Data Chatbot</h2>
+
+        <form id="chatbotForm">
+          <input type="hidden" id="dataId" />
+
+          <div class="form-group">
+            <label for="judul"> Judul </label>
+
+            <input
+              type="text"
+              id="judul"
+              placeholder="Contoh: Informasi Pendaftaran Pasien"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="kategori"> Kategori </label>
+
+            <select id="kategori" required>
+              <option value="">-- Pilih Kategori --</option>
+
+              <option value="Layanan">Layanan</option>
+
+              <option value="Kesehatan">Kesehatan</option>
+
+              <option value="Dokter">Dokter</option>
+
+              <option value="Pendaftaran">Pendaftaran</option>
+
+              <option value="BPJS">BPJS</option>
+
+              <option value="Fasilitas">Fasilitas</option>
+
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="deskripsi"> Deskripsi </label>
+
+            <textarea
+              id="deskripsi"
+              placeholder="Masukkan deskripsi atau informasi yang akan digunakan chatbot..."
+              required
+            ></textarea>
+          </div>
+
+          <div class="form-buttons">
+            <button type="submit" class="btn-simpan">Simpan</button>
+
+            <button type="button" class="btn-batal" onclick="tutupForm()">
+              Batal
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- TABLE -->
+
+      <div class="table-container">
+        <div class="table-header">
+          <h2>Data Chatbot</h2>
+
+          <span id="jumlah-data"> Total data: 0 </span>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>No</th>
+
+              <th>Judul</th>
+
+              <th>Kategori</th>
+
+              <th>Deskripsi</th>
+
+              <th>Aksi</th>
+            </tr>
+          </thead>
+
+          <tbody id="dataTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "puskesmas_chatbot_data";
+
+      // ============================
+      // AMBIL DATA
+      // ============================
+
+      function ambilData() {
+        try {
+          const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+
+          return Array.isArray(data) ? data : [];
+        } catch {
+          return [];
+        }
+      }
+
+      // ============================
+      // SIMPAN DATA
+      // ============================
+
+      function simpanData(data) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      }
+
+      // ============================
+      // TAMPILKAN DATA
+      // ============================
+
+      function tampilkanData(data = ambilData()) {
+        const table = document.getElementById("dataTable");
+
+        const jumlah = document.getElementById("jumlah-data");
+
+        table.innerHTML = "";
+
+        jumlah.textContent = "Total data: " + data.length;
+
+        if (data.length === 0) {
+          table.innerHTML = `
+            <tr>
+                <td colspan="5" class="kosong">
+                    Tidak ada data chatbot.
+                </td>
+            </tr>
+        `;
+
+          return;
+        }
+
+        data.forEach((item, index) => {
+          const row = document.createElement("tr");
+
+          row.innerHTML = `
+
+            <td>${index + 1}</td>
+
+            <td>
+                <strong>
+                    ${escapeHTML(item.judul)}
+                </strong>
+            </td>
+
+            <td>
+                <span class="kategori">
+                    ${escapeHTML(item.kategori)}
+                </span>
+            </td>
+
+            <td>
+                ${escapeHTML(item.deskripsi)}
+            </td>
+
+            <td class="aksi">
+
+                <button
+                    class="btn-edit"
+                    onclick="editData('${item.id}')"
+                >
+                    Edit
+                </button>
+
+                <button
+                    class="btn-hapus"
+                    onclick="hapusData('${item.id}')"
+                >
+                    Hapus
+                </button>
+
+            </td>
+
+        `;
+
+          table.appendChild(row);
+        });
+      }
+
+      // ============================
+      // BUKA FORM TAMBAH
+      // ============================
+
+      function bukaFormTambah() {
+        document.getElementById("formContainer").classList.add("active");
+
+        document.getElementById("formTitle").textContent =
+          "Tambah Data Chatbot";
+
+        document.getElementById("chatbotForm").reset();
+
+        document.getElementById("dataId").value = "";
+      }
+
+      // ============================
+      // TUTUP FORM
+      // ============================
+
+      function tutupForm() {
+        document.getElementById("formContainer").classList.remove("active");
+
+        document.getElementById("chatbotForm").reset();
+      }
+
+      // ============================
+      // TAMBAH / UPDATE
+      // ============================
+
+      document
+        .getElementById("chatbotForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          const id = document.getElementById("dataId").value;
+
+          const judul = document.getElementById("judul").value.trim();
+
+          const kategori = document.getElementById("kategori").value;
+
+          const deskripsi = document.getElementById("deskripsi").value.trim();
+
+          let data = ambilData();
+
+          if (id) {
+            // UPDATE
+
+            const index = data.findIndex((item) => item.id === id);
+
+            if (index !== -1) {
+              data[index] = {
+                id: id,
+
+                judul: judul,
+
+                kategori: kategori,
+
+                deskripsi: deskripsi,
+              };
+            }
+          } else {
+            // CREATE
+
+            data.push({
+              id: Date.now().toString(),
+
+              judul: judul,
+
+              kategori: kategori,
+
+              deskripsi: deskripsi,
+            });
+          }
+
+          simpanData(data);
+
+          tampilkanData();
+
+          tutupForm();
+        });
+
+      // ============================
+      // EDIT
+      // ============================
+
+      function editData(id) {
+        const data = ambilData();
+
+        const item = data.find((item) => item.id === id);
+
+        if (!item) return;
+
+        document.getElementById("dataId").value = item.id;
+
+        document.getElementById("judul").value = item.judul;
+
+        document.getElementById("kategori").value = item.kategori;
+
+        document.getElementById("deskripsi").value = item.deskripsi;
+
+        document.getElementById("formTitle").textContent = "Edit Data Chatbot";
+
+        document.getElementById("formContainer").classList.add("active");
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      }
+
+      // ============================
+      // DELETE
+      // ============================
+
+      function hapusData(id) {
+        const yakin = confirm("Apakah kamu yakin ingin menghapus data ini?");
+
+        if (!yakin) return;
+
+        let data = ambilData();
+
+        data = data.filter((item) => item.id !== id);
+
+        simpanData(data);
+
+        tampilkanData();
+      }
+
+      // ============================
+      // SEARCH
+      // ============================
+
+      document
+        .getElementById("searchInput")
+        .addEventListener("input", function () {
+          const keyword = this.value.toLowerCase().trim();
+
+          const data = ambilData();
+
+          const hasil = data.filter(
+            (item) =>
+              item.judul.toLowerCase().includes(keyword) ||
+              item.kategori.toLowerCase().includes(keyword) ||
+              item.deskripsi.toLowerCase().includes(keyword),
+          );
+
+          tampilkanData(hasil);
+        });
+
+      // ============================
+      // KEAMANAN TAMPILAN
+      // ============================
+
+      function escapeHTML(text) {
+        const div = document.createElement("div");
+
+        div.textContent = text;
+
+        return div.innerHTML;
+      }
+
+      // ============================
+      // LOAD AWAL
+      // ============================
+
+      tampilkanData();
+    </script>
+  </body>
+</html>

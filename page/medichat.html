@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medi-Chat</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="body-chat">
+    <header>
+        <nav class="navbar">
+            <a href="../homepage.html" class="logo-container">
+                <img class="logo" src="../assets/logo.png" alt="Medi-Chat Logo">
+                <div class="logo-text">
+                    <h4>Puskesmas</h4>
+                    <p>Sehat pilihan kita</p>
+                </div>
+            </a>
+
+            <!-- Tombol hamburger-->
+            <input type="checkbox" id="menu-toggle" class="menu-toggle">
+            <label for="menu-toggle" class="hamburger" aria-label="Buka menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </label>
+
+            <ul class="nav-links">
+                <li class="home"><a href="../homepage.html">Home</a></li>
+                <li class="informasi">
+                    <a >Informasi</a>
+                    <ul class="dropdown-info">
+                        <li><a href="informasi.html#pendaftaran">Pendaftaran</a></li>
+                        <li><a href="informasi.html#jadwal">Jadwal Layanan</a></li>
+                        <li><a href="informasi.html#biaya">Biaya Rawat</a></li>
+                    </ul>
+                </li>
+                <li class="mindichat"><a href="medichat.html">Medi-Chat</a></li>
+                <li class="tentang"><a href="landing-page.html">Tentang Jurnal</a></li>
+            </ul>
+        </nav>
+    </header>
+    <section class="page-banner">
+        <h1>Medi-Chat</h1>
+        <p>Asisten chatbot untuk informasi layanan Puskesmas dan kesehatan umum</p>
+    </section>
+
+    <main class="chat-wrapper">
+        <div class="chat-box">
+            <div class="chat-header">
+                <h2>Medi-Chat</h2>
+                <p>Menjawab berdasarkan dokumen layanan Puskesmas</p>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <div class="msg bot">Halo! Ada yang bisa saya bantu seputar layanan kesehatan Puskesmas?</div>
+            </div>
+
+            <div class="chips">
+                <button type="button" class="chip">Bagaimana cara daftar pasien BPJS?</button>
+                <button type="button" class="chip">Berapa biaya rawat jalan?</button>
+                <button type="button" class="chip">Kapan jadwal imunisasi?</button>
+                <button type="button" class="chip">Tips sehat untuk lansia</button>
+            </div>
+
+            <form class="chat-form" id="chat-form">
+                <label for="pertanyaan">Pertanyaan Anda</label>
+                <div class="row">
+                    <input type="text" id="pertanyaan" placeholder="Ketik pertanyaan..." autocomplete="off" required>
+                    <button type="submit" class="btn-konsultasi">Kirim</button>
+                </div>
+            </form>
+        </div>
+
+        <p class="note">Medi-Chat hanya memberi informasi umum dan bukan pengganti konsultasi dengan dokter.</p>
+    </main>
+
+    <footer class="site-footer">
+        <p>&copy; 2026 Kelompok 3 - Tugas Mata Kuliah Pengembangan Aplikasi Web (TI-501)</p>
+        <p class="admin-link"><a href="admin.html">Login Admin</a></p>
+    </footer>
+
+    <!-- Simulasi balasan (bukan AI sungguhan) -->
+    <script>
+        const form = document.getElementById('chat-form');
+        const input = document.getElementById('pertanyaan');
+        const box = document.getElementById('chat-messages');
+
+        const jawaban = [
+            { kata: ['daftar', 'pendaftaran', 'bpjs'], isi: 'Siapkan KTP/KK dan kartu BPJS (jika ada), lalu datang ke loket pendaftaran. Detail langkahnya ada di halaman Informasi > Pendaftaran.' },
+            { kata: ['biaya', 'tarif', 'bayar'], isi: 'Biaya berbeda untuk rawat jalan dan rawat inap. Lihat tabel di halaman Informasi > Biaya Rawat.' },
+            { kata: ['jadwal', 'dokter', 'imunisasi', 'buka'], isi: 'Jadwal dokter umum, dokter gigi, dan imunisasi ada di halaman Informasi > Jadwal Layanan.' },
+            { kata: ['sehat', 'lansia', 'tips', 'demam', 'batuk', 'sakit'], isi: 'Jaga pola makan seimbang, cukup tidur, dan rutin bergerak. Jika keluhan berlanjut, segera periksakan diri ke dokter.' }
+        ];
+
+        function tambah(teks, tipe) {
+            const el = document.createElement('div');
+            el.className = 'msg ' + tipe;
+            el.textContent = teks;
+            box.appendChild(el);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function balas(q) {
+            const t = q.toLowerCase();
+            for (const j of jawaban) {
+                if (j.kata.some(k => t.includes(k))) return j.isi;
+            }
+            return 'Maaf, saya hanya menjawab pertanyaan seputar layanan Puskesmas dan kesehatan.';
+        }
+
+        function kirim(q) {
+            tambah(q, 'user');
+            setTimeout(() => tambah(balas(q), 'bot'), 400);
+        }
+
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            const q = input.value.trim();
+            if (!q) return;
+            kirim(q);
+            input.value = '';
+        });
+
+        document.querySelectorAll('.chip').forEach(b =>
+            b.addEventListener('click', () => kirim(b.textContent))
+        );
+
+        // Pertanyaan dari form di homepage (?q=...)
+        const awal = new URLSearchParams(location.search).get('q');
+        if (awal) kirim(awal);
+    </script>
+</body>
+</html>

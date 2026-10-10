@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Login Admin - Puskesmas</title>
+    <link rel="stylesheet" href="../css/style.css" />
+
+    <style>
+      .admin-page {
+        max-width: 1150px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+
+      .login-card {
+        max-width: 420px;
+        margin: 70px auto;
+        padding: 30px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px #00000014;
+      }
+
+      .login-card h1 {
+        color: #287c7e;
+        text-align: center;
+      }
+
+      .login-card label {
+        display: block;
+        margin: 16px 0 7px;
+        font-weight: bold;
+      }
+
+      .login-card input {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 11px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 15px;
+      }
+
+      .btn-login {
+        width: 100%;
+        margin-top: 20px;
+        background: #287c7e;
+        color: white;
+      }
+
+      .btn-logout {
+        background: #e94444;
+        color: white;
+      }
+
+      .login-error {
+        color: #c62828;
+        margin-top: 12px;
+      }
+
+      .admin-menu-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 24px;
+      }
+
+      .admin-menu-card {
+        display: block;
+        box-sizing: border-box;
+        min-height: 170px;
+        padding: 30px 20px;
+        background: white;
+        border-radius: 14px;
+        color: #287c7e;
+        text-align: center;
+        text-decoration: none;
+        box-shadow: 0 3px 12px #00000012;
+        transition: transform 0.2s;
+      }
+
+      .admin-menu-card:hover {
+        transform: translateY(-4px);
+      }
+
+      .admin-menu-icon {
+        margin-bottom: 15px;
+        font-size: 44px;
+      }
+
+      .admin-menu-card h2 {
+        font-size: 19px;
+        margin: 0 0 12px;
+      }
+
+      .admin-menu-card p {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .dashboard-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        margin-bottom: 25px;
+      }
+
+      .dashboard-top h1 {
+        color: #455447;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      @media (max-width: 800px) {
+        .admin-menu-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 520px) {
+        .admin-menu-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .dashboard-top {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <nav class="navbar">
+        <a href="../homepage.html" class="logo-container">
+          <img class="logo" src="../assets/logo.png" alt="Logo Puskesmas" />
+          <div class="logo-text">
+            <h4>Puskesmas</h4>
+            <p>Sehat pilihan kita</p>
+          </div>
+        </a>
+
+        <ul class="nav-links">
+          <li><a href="../homepage.html">Home</a></li>
+          <li><a href="informasi.html">Informasi</a></li>
+          <li><a href="medichat.html">Medi-Chat</a></li>
+          <li><a href="landing-page.html">Tentang Puskesmas</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main class="admin-page">
+      <!-- LOGIN -->
+      <section id="login-view" class="login-card">
+        <h1>Login Admin</h1>
+        <p style="text-align: center">
+          Silakan masuk untuk mengelola Puskesmas.
+        </p>
+
+        <form id="login-form">
+          <label for="login-user">Username</label>
+          <input id="login-user" type="text" autocomplete="username" required />
+
+          <label for="login-pass">Password</label>
+          <input
+            id="login-pass"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+
+          <p id="login-error" class="login-error" role="alert" hidden></p>
+
+          <button id="login-btn" class="btn btn-login" type="submit">
+            Masuk
+          </button>
+        </form>
+      </section>
+
+      <!-- DASHBOARD -->
+      <section id="dashboard-view" hidden>
+        <div class="dashboard-top">
+          <h1>Selamat Datang, admin!</h1>
+          <button id="btn-logout" class="btn btn-logout" type="button">
+            Logout
+          </button>
+        </div>
+
+        <div class="admin-menu-grid">
+          <a href="informasi.html#pendaftaran" class="admin-menu-card">
+            <div class="admin-menu-icon">💊</div>
+            <h2>Kelola Layanan</h2>
+            <p>Lihat informasi prosedur dan layanan Puskesmas.</p>
+          </a>
+
+          <a href="informasi.html#jadwal" class="admin-menu-card">
+            <div class="admin-menu-icon">🗓️</div>
+            <h2>Kelola Jadwal Dokter</h2>
+            <p>Lihat informasi jadwal layanan dokter.</p>
+          </a>
+
+          <a href="informasi.html#biaya" class="admin-menu-card">
+            <div class="admin-menu-icon">ℹ️</div>
+            <h2>Kelola Informasi RS</h2>
+            <p>Lihat informasi layanan dan biaya Puskesmas.</p>
+          </a>
+
+          <a href="kelola-chatbot.html" class="admin-menu-card">
+            <div class="admin-menu-icon">🤖</div>
+            <h2>Kelola Chatbot AI</h2>
+            <p>
+              Tambah, cari, edit, dan hapus data pengetahuan chatbot Medi-Chat.
+            </p>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <script src="../js/data.js"></script>
+
+    <script>
+      (function () {
+        "use strict";
+
+        const D = window.MediChatData;
+
+        const loginView = document.getElementById("login-view");
+        const dashboardView = document.getElementById("dashboard-view");
+        const loginForm = document.getElementById("login-form");
+        const loginError = document.getElementById("login-error");
+        const loginButton = document.getElementById("login-btn");
+
+        function tampilkanHalaman() {
+          const sudahLogin = D.isLoggedIn();
+
+          loginView.hidden = sudahLogin;
+          dashboardView.hidden = !sudahLogin;
+
+          if (!sudahLogin) {
+            document.getElementById("login-user").focus();
+          }
+        }
+
+        loginForm.addEventListener("submit", async function (event) {
+          event.preventDefault();
+          loginError.hidden = true;
+          loginButton.disabled = true;
+
+          try {
+            const berhasil = await D.login(
+              document.getElementById("login-user").value.trim(),
+              document.getElementById("login-pass").value,
+            );
+
+            if (berhasil) {
+              document.getElementById("login-pass").value = "";
+              tampilkanHalaman();
+            } else {
+              loginError.textContent = "Username atau password salah.";
+              loginError.hidden = false;
+            }
+          } catch (error) {
+            loginError.textContent =
+              error.message || "Login gagal. Silakan coba lagi.";
+            loginError.hidden = false;
+          } finally {
+            loginButton.disabled = false;
+          }
+        });
+
+        document
+          .getElementById("btn-logout")
+          .addEventListener("click", function () {
+            D.logout();
+            loginForm.reset();
+            tampilkanHalaman();
+          });
+
+        if (!D) {
+          loginError.textContent = "File data.js tidak berhasil dimuat.";
+          loginError.hidden = false;
+          return;
+        }
+
+        tampilkanHalaman();
+      })();
+    </script>
+  </body>
+</html>
