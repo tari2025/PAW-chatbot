@@ -12,7 +12,6 @@
     var SESSION_MS = 30 * 60 * 1000; // sesi berlaku 30 menit
 
     // Kredensial bawaan -> username: admin | password: admin123
-    // (segera ganti password lewat menu "Akun & Data" di halaman admin)
     var ADMIN_USER = 'admin';
     var DEFAULT_PASS_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
 
@@ -40,7 +39,35 @@
             { layanan: 'Rawat Inap (per hari)', umum: 'Rp 150.000', bpjs: 'Ditanggung BPJS' }
         ],
         catatanJadwal: '',
-        catatanBiaya: ''
+        catatanBiaya: '',
+
+        /* ============ BARU: DATA CHATBOT ============ */
+        chatbot: [
+            {
+                id: 1,
+                pertanyaan: 'Jam buka puskesmas?',
+                jawaban: 'Puskesmas buka Senin-Jumat, 08.00-16.00 WIB.',
+                kategori: 'jadwal'
+            },
+            {
+                id: 2,
+                pertanyaan: 'Bagaimana cara daftar berobat?',
+                jawaban: 'Datang langsung ke loket pendaftaran dengan membawa KTP dan BPJS.',
+                kategori: 'layanan'
+            },
+            {
+                id: 3,
+                pertanyaan: 'Apakah ada layanan vaksin?',
+                jawaban: 'Ya, layanan vaksin tersedia setiap hari Selasa dan Kamis.',
+                kategori: 'layanan'
+            },
+            {
+                id: 4,
+                pertanyaan: 'Berapa biaya rawat jalan?',
+                jawaban: 'Rawat jalan untuk pasien umum Rp 15.000, untuk BPJS ditanggung.',
+                kategori: 'obat'
+            }
+        ]
     };
 
     function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -63,6 +90,27 @@
         });
     }
 
+    /* ============ BARU: normalisasi chatbot ============ */
+    function chatbotRows(v) {
+        if (!Array.isArray(v)) return [];
+        var usedIds = {};
+        var nextId = 1;
+        return v.map(function (item) {
+            var p = str(item && item.pertanyaan).trim();
+            var j = str(item && item.jawaban).trim();
+            var k = str(item && item.kategori).trim() || 'umum';
+            var id = parseInt(item && item.id, 10);
+            if (!id || usedIds[id]) {
+                while (usedIds[nextId]) nextId++;
+                id = nextId;
+            }
+            usedIds[id] = true;
+            return { id: id, pertanyaan: p, jawaban: j, kategori: k };
+        }).filter(function (o) {
+            return o.pertanyaan && o.jawaban;
+        });
+    }
+
     // Normalisasi: pastikan struktur & tipe data selalu benar
     function sanitize(obj) {
         if (!obj || typeof obj !== 'object') return null;
@@ -72,7 +120,8 @@
             jadwal: rows(obj.jadwal, ['layanan', 'hari', 'jam']),
             biaya: rows(obj.biaya, ['layanan', 'umum', 'bpjs']),
             catatanJadwal: str(obj.catatanJadwal).trim(),
-            catatanBiaya: str(obj.catatanBiaya).trim()
+            catatanBiaya: str(obj.catatanBiaya).trim(),
+            chatbot: chatbotRows(obj.chatbot)   /* <-- BARU */
         };
     }
 
@@ -126,7 +175,6 @@
 
     function login(user, pass) {
         if (String(user).trim().toLowerCase() !== ADMIN_USER) {
-            // tetap hash agar waktu respons mirip
             return sha256(pass).then(function () { return false; });
         }
         return verifyPassword(pass).then(function (ok) {
@@ -156,6 +204,119 @@
         });
     }
 
+    /* =====================================================
+       ============ BARU: API KHUSUS CHATBOT ============
+       ===================================================== */
+
+    /**
+     * Ambil semua data chatbot.
+     */
+    function getChatbotList() {
+        return load().chatbot || [];
+    }
+
+    /**
+     * Tambah chatbot baru. Mengembalikan objek chatbot baru,
+     * atau null jika gagal.
+     */
+    function addChatbot(pertanyaan, jawaban, kategori) {
+        pertanyaan = str(pertanyaan).trim();
+        jawaban    = str(jawaban).trim();
+        kategori   = str(kategori).trim() || 'umum';
+        if (!pertanyaan || !jawaban) return null;
+
+        var data = load();
+        var list = data.chatbot || [];
+        var newId = list.length > 0
+            ? Math.max.apply(null, list.map(function (c) { return c.id; })) + 1
+            : 1;
+
+        var baru = { id: newId, pertanyaan: pertanyaan, jawaban: jawaban, kategori: kategori };
+        list.push(baru);
+        data.chatbot = list;
+        return save(data) ? baru : null;
+    }
+
+    /**
+     * Update chatbot berdasarkan id.
+     */
+    function updateChatbot(id, pertanyaan, jawaban, kategori) {
+        id = parseInt(id, 10);
+        pertanyaan = str(pertanyaan).trim();
+        jawaban    = str(jawaban).trim();
+        kategori   = str(kategori).trim() || 'umum';
+        if (!id || !pertanyaan || !jawaban) return null;
+
+        var data = load();
+        var list = data.chatbot || [];
+        var found = false;
+
+        list = list.map(function (c) {
+            if (c.id === id) {
+                found = true;
+                return { id: id, pertanyaan: pertanyaan, jawaban: jawaban, kategori: kategori };
+            }
+            return c;
+        });
+
+        if (!found) return null;
+        data.chatbot = list;
+        return save(data) ? { id: id, pertanyaan: pertanyaan, jawaban: jawaban, kategori: kategori } : null;
+    }
+
+    /**
+     * Hapus chatbot berdasarkan id.
+     */
+    function deleteChatbot(id) {
+        id = parseInt(id, 10);
+        if (!id) return false;
+
+        var data = load();
+        var list = data.chatbot || [];
+        var before = list.length;
+        list = list.filter(function (c) { return c.id !== id; });
+
+        if (list.length === before) return false; // tidak ada yg dihapus
+        data.chatbot = list;
+        return !!save(data);
+    }
+
+    /**
+     * Cari chatbot terbaik berdasarkan pertanyaan user.
+     * Menggunakan simple scoring (kecocokan kata).
+     */
+    function findChatbotAnswer(input) {
+        input = str(input).trim().toLowerCase();
+        if (!input) return null;
+
+        var list = getChatbotList();
+        if (!list.length) return null;
+
+        var inputWords = input.split(/\s+/).filter(function (w) { return w.length > 2; });
+        if (!inputWords.length) return null;
+
+        var best = null;
+        var bestScore = 0;
+
+        list.forEach(function (c) {
+            var q = c.pertanyaan.toLowerCase();
+            var score = 0;
+            inputWords.forEach(function (w) {
+                if (q.indexOf(w) !== -1) score++;
+            });
+            // Bonus jika pertanyaan mengandung seluruh input
+            if (q.indexOf(input) !== -1) score += 3;
+            if (score > bestScore) {
+                bestScore = score;
+                best = c;
+            }
+        });
+
+        // Butuh minimal 1 kata cocok
+        return bestScore > 0 ? best : null;
+    }
+
+    /* ================== EXPORT ================== */
     window.MediChatData = {
         defaults: function () { return clone(DEFAULTS); },
         load: load,
@@ -166,6 +327,13 @@
         logout: logout,
         isLoggedIn: isLoggedIn,
         verifyPassword: verifyPassword,
-        setPassword: setPassword
+        setPassword: setPassword,
+
+        /* Chatbot API */
+        getChatbotList: getChatbotList,
+        addChatbot: addChatbot,
+        updateChatbot: updateChatbot,
+        deleteChatbot: deleteChatbot,
+        findChatbotAnswer: findChatbotAnswer
     };
 })();

@@ -1,294 +1,597 @@
-/* =====================================================
-   Logika halaman admin (page/admin.html)
-   ===================================================== */
+/* ============================================================
+   admin.js - Logika dashboard admin Puskesmas
+   + Fitur Upload / Backup / Template Chatbot
+   ============================================================ */
 (function () {
     'use strict';
 
-    var D = window.MediChatData;
-    var $ = function (sel) { return document.querySelector(sel); };
+    const D = window.MediChatData;
+    if (!D) { alert('data.js belum dimuat'); return; }
 
-    var loginView = $('#login-view');
-    var dashView = $('#dashboard-view');
-    var loginForm = $('#login-form');
-    var loginError = $('#login-error');
-    var loginBtn = $('#login-btn');
-    var dirtyInfo = $('#dirty-info');
-    var toastEl = $('#toast');
+    const $  = (s) => document.querySelector(s);
+    const $$ = (s) => document.querySelectorAll(s);
 
-    var data = null;
-    var dirty = false;
-    var failed = 0;
-    var lockedUntil = 0;
-    var toastTimer = null;
+    const KEYS = {
+        layanan: 'medichat_layanan_v1',
+        jadwalAdmin: 'medichat_jadwal_admin_v1',
+        info: 'medichat_info_v1'
+    };
 
-    /* ---------- Util ---------- */
-    function toast(msg, type) {
-        toastEl.textContent = msg;
-        toastEl.className = 'toast ' + (type || 'ok');
-        toastEl.hidden = false;
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { toastEl.hidden = true; }, 3500);
+    function loadLocal(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : fallback;
+        } catch (e) { return fallback; }
+    }
+    function saveLocal(key, val) {
+        try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+        catch (e) { return false; }
+    }
+    function escapeHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
-    function setDirty(v) {
-        dirty = v;
-        dirtyInfo.textContent = v
-            ? 'Ada perubahan yang belum disimpan.'
-            : 'Semua perubahan sudah tersimpan.';
-        dirtyInfo.classList.toggle('unsaved', v);
+    let dataLayanan = loadLocal(KEYS.layanan, [
+        { nama: 'Rawat Jalan', deskripsi: 'Pelayanan pemeriksaan umum oleh dokter.' },
+        { nama: 'Rawat Inap',  deskripsi: 'Pelayanan rawat inap untuk pasien.' }
+    ]);
+    let dataJadwal = loadLocal(KEYS.jadwalAdmin, [
+        { nama: 'dr. Andi', spesialis: 'Dokter Umum', hari: 'Senin', mulai: '08:00', selesai: '14:00' }
+    ]);
+    let dataInfo = loadLocal(KEYS.info, [
+        { nama: 'Visi Puskesmas', alamat: 'Menjadi puskesmas unggulan.', telepon: 'umum' }
+    ]);
+
+    let notifTimer = null;
+    function notif(msg, type) {
+        const el = $('#notif');
+        if (!el) return alert(msg);
+        el.textContent = msg;
+        el.className = 'notif ' + (type === 'err' ? 'err' : '');
+        el.style.display = 'block';
+        clearTimeout(notifTimer);
+        notifTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
     }
 
-    function lines(text) {
-        return text.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
-    }
+    /* ===== LOGIN / LOGOUT ===== */
+    const loginSection = $('#loginSection');
+    const dashboardSection = $('#dashboardSection');
+    const loginForm = $('#loginForm');
+    const errorMsg = $('#errorMsg');
+    const btnLogin = $('#btnLogin');
 
-    /* ---------- Tampilan login / dashboard ---------- */
     function showView() {
-        var ok = D.isLoggedIn();
-        loginView.hidden = ok;
-        dashView.hidden = !ok;
-        if (ok) {
-            data = D.load();
-            renderAll();
-            setDirty(false);
+        const ok = D.isLoggedIn();
+        loginSection.style.display = ok ? 'none' : 'block';
+        dashboardSection.style.display = ok ? 'block' : 'none';
+        if (!ok) {
+            const u = $('#username');
+            if (u) u.focus();
         } else {
-            $('#login-user').focus();
+            renderSemua();
         }
     }
 
-    loginForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        loginError.hidden = true;
+    if (loginForm) {
+        loginForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            errorMsg.style.display = 'none';
+            btnLogin.disabled = true;
+            btnLogin.textContent = 'Memproses...';
 
-        var wait = lockedUntil - Date.now();
-        if (wait > 0) {
-            loginError.textContent = 'Terlalu banyak percobaan. Coba lagi dalam ' + Math.ceil(wait / 1000) + ' detik.';
-            loginError.hidden = false;
-            return;
-        }
-
-        loginBtn.disabled = true;
-        D.login($('#login-user').value, $('#login-pass').value).then(function (ok) {
-            if (ok) {
-                failed = 0;
-                $('#login-pass').value = '';
-                showView();
-            } else {
-                failed++;
-                if (failed >= 5) {
-                    lockedUntil = Date.now() + 30000;
-                    failed = 0;
-                    loginError.textContent = 'Terlalu banyak percobaan. Tunggu 30 detik.';
-                } else {
-                    loginError.textContent = 'Username atau password salah.';
-                }
-                loginError.hidden = false;
-            }
-        }).catch(function (err) {
-            loginError.textContent = err.message || 'Terjadi kesalahan saat login.';
-            loginError.hidden = false;
-        }).then(function () {
-            loginBtn.disabled = false;
-        });
-    });
-
-    $('#btn-logout').addEventListener('click', function () {
-        if (dirty && !confirm('Ada perubahan yang belum disimpan. Tetap keluar?')) return;
-        D.logout();
-        setDirty(false);
-        showView();
-    });
-
-    /* ---------- Tab ---------- */
-    document.querySelectorAll('.tab-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            document.querySelectorAll('.tab-btn').forEach(function (b) {
-                b.classList.toggle('active', b === btn);
-            });
-            document.querySelectorAll('.tab-panel').forEach(function (p) {
-                p.hidden = p.id !== 'tab-' + btn.dataset.tab;
-            });
-        });
-    });
-
-    /* ---------- Editor tabel (jadwal & biaya) ---------- */
-    function renderRows(tbodySel, key, fields) {
-        var tbody = $(tbodySel);
-        tbody.innerHTML = '';
-
-        data[key].forEach(function (row, i) {
-            var tr = document.createElement('tr');
-
-            fields.forEach(function (f) {
-                var td = document.createElement('td');
-                var inp = document.createElement('input');
-                inp.type = 'text';
-                inp.value = row[f];
-                inp.setAttribute('aria-label', f + ' baris ' + (i + 1));
-                inp.addEventListener('input', function () {
-                    row[f] = inp.value;
-                    setDirty(true);
+            D.login($('#username').value, $('#password').value)
+                .then(function (ok) {
+                    if (ok) {
+                        $('#password').value = '';
+                        showView();
+                    } else {
+                        errorMsg.textContent = 'Username atau password salah!';
+                        errorMsg.style.display = 'block';
+                    }
+                })
+                .catch(function (err) {
+                    errorMsg.textContent = err.message || 'Login gagal.';
+                    errorMsg.style.display = 'block';
+                })
+                .then(function () {
+                    btnLogin.disabled = false;
+                    btnLogin.textContent = 'Login';
                 });
-                td.appendChild(inp);
-                tr.appendChild(td);
-            });
-
-            var tdAksi = document.createElement('td');
-            tdAksi.className = 'col-aksi';
-            var del = document.createElement('button');
-            del.type = 'button';
-            del.className = 'admin-btn danger small';
-            del.textContent = 'Hapus';
-            del.addEventListener('click', function () {
-                data[key].splice(i, 1);
-                setDirty(true);
-                renderRows(tbodySel, key, fields);
-            });
-            tdAksi.appendChild(del);
-            tr.appendChild(tdAksi);
-
-            tbody.appendChild(tr);
         });
-
-        if (!data[key].length) {
-            var empty = document.createElement('tr');
-            var td = document.createElement('td');
-            td.colSpan = fields.length + 1;
-            td.className = 'admin-muted';
-            td.textContent = 'Belum ada data. Klik "+ Tambah Baris".';
-            empty.appendChild(td);
-            tbody.appendChild(empty);
-        }
     }
 
-    function addRow(tbodySel, key, fields) {
-        var row = {};
-        fields.forEach(function (f) { row[f] = ''; });
-        data[key].push(row);
-        setDirty(true);
-        renderRows(tbodySel, key, fields);
-        var inputs = $(tbodySel).querySelectorAll('tr:last-child input');
-        if (inputs.length) inputs[0].focus();
-    }
-
-    var JADWAL_FIELDS = ['layanan', 'hari', 'jam'];
-    var BIAYA_FIELDS = ['layanan', 'umum', 'bpjs'];
-
-    $('#add-jadwal').addEventListener('click', function () { addRow('#tbody-jadwal', 'jadwal', JADWAL_FIELDS); });
-    $('#add-biaya').addEventListener('click', function () { addRow('#tbody-biaya', 'biaya', BIAYA_FIELDS); });
-
-    /* ---------- Render semua ---------- */
-    function renderAll() {
-        $('#area-bpjs').value = data.pendaftaran.bpjs.join('\n');
-        $('#area-umum').value = data.pendaftaran.umum.join('\n');
-        $('#note-jadwal').value = data.catatanJadwal;
-        $('#note-biaya').value = data.catatanBiaya;
-        renderRows('#tbody-jadwal', 'jadwal', JADWAL_FIELDS);
-        renderRows('#tbody-biaya', 'biaya', BIAYA_FIELDS);
-    }
-
-    $('#area-bpjs').addEventListener('input', function (e) {
-        data.pendaftaran.bpjs = lines(e.target.value);
-        setDirty(true);
-    });
-    $('#area-umum').addEventListener('input', function (e) {
-        data.pendaftaran.umum = lines(e.target.value);
-        setDirty(true);
-    });
-    $('#note-jadwal').addEventListener('input', function (e) {
-        data.catatanJadwal = e.target.value;
-        setDirty(true);
-    });
-    $('#note-biaya').addEventListener('input', function (e) {
-        data.catatanBiaya = e.target.value;
-        setDirty(true);
-    });
-
-    /* ---------- Simpan ---------- */
-    $('#btn-save').addEventListener('click', function () {
-        if (!D.isLoggedIn()) {
-            toast('Sesi berakhir, silakan login ulang.', 'err');
+    const btnLogout = $('#btnLogout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', function () {
+            if (!confirm('Yakin ingin logout?')) return;
+            D.logout();
             showView();
-            return;
-        }
-        var saved = D.save(data);
-        if (!saved) {
-            toast('Gagal menyimpan data (penyimpanan browser penuh/diblokir).', 'err');
-            return;
-        }
-        data = saved;
-        renderAll();
-        setDirty(false);
-        toast('Perubahan berhasil disimpan.');
-    });
+        });
+    }
 
-    /* ---------- Ganti password ---------- */
-    $('#pass-form').addEventListener('submit', function (e) {
-        e.preventDefault();
-        var oldP = $('#pass-old').value;
-        var newP = $('#pass-new').value;
-        var newP2 = $('#pass-new2').value;
-
-        if (newP.length < 8) { toast('Password baru minimal 8 karakter.', 'err'); return; }
-        if (newP !== newP2) { toast('Konfirmasi password tidak sama.', 'err'); return; }
-
-        D.verifyPassword(oldP).then(function (ok) {
-            if (!ok) { toast('Password saat ini salah.', 'err'); return; }
-            return D.setPassword(newP).then(function () {
-                $('#pass-form').reset();
-                toast('Password berhasil diubah.');
+    /* ===== NAVIGASI SIDEBAR ===== */
+    $$('.menu-item').forEach(function (item) {
+        item.addEventListener('click', function () {
+            const target = item.dataset.section;
+            $$('.menu-item').forEach((c) => c.classList.toggle('active', c === item));
+            $$('.section-box').forEach((s) => {
+                s.classList.toggle('active', s.id === 'section-' + target);
             });
-        }).catch(function (err) {
-            toast(err.message || 'Gagal mengubah password.', 'err');
         });
     });
 
-    /* ---------- Ekspor / impor / reset ---------- */
-    $('#btn-export').addEventListener('click', function () {
-        var blob = new Blob([JSON.stringify(D.sanitize(data), null, 2)], { type: 'application/json' });
-        var a = document.createElement('a');
+    /* ===== LAYANAN ===== */
+    function renderLayanan(filter) {
+        const list = $('#listLayanan');
+        if (!list) return;
+        const q = (filter || '').toLowerCase().trim();
+        const filtered = dataLayanan.filter(function (item) {
+            if (!q) return true;
+            return (item.nama || '').toLowerCase().includes(q) ||
+                   (item.deskripsi || '').toLowerCase().includes(q);
+        });
+        if (!filtered.length) {
+            list.innerHTML = '<div class="empty-msg">Belum ada data layanan.</div>';
+            return;
+        }
+        list.innerHTML = filtered.map(function (item) {
+            const i = dataLayanan.indexOf(item);
+            return '<div class="data-item"><div class="info"><b>' + escapeHtml(item.nama) +
+                '</b><small>' + escapeHtml(item.deskripsi || '-') + '</small></div><div>' +
+                '<button class="btn-sm btn-edit" data-act="edit-layanan" data-idx="' + i + '">✏️ Edit</button> ' +
+                '<button class="btn-sm btn-hapus" data-act="hapus-layanan" data-idx="' + i + '">🗑️ Hapus</button>' +
+                '</div></div>';
+        }).join('');
+    }
+    function resetFormLayanan() {
+        $('#editIndexLayanan').value = '';
+        $('#namaLayanan').value = '';
+        $('#deskripsiLayanan').value = '';
+        $('#btnSimpanLayanan').textContent = 'Tambah Layanan';
+        $('#btnBatalLayanan').hidden = true;
+    }
+    function simpanLayanan() {
+        const idx = $('#editIndexLayanan').value;
+        const nama = $('#namaLayanan').value.trim();
+        const deskripsi = $('#deskripsiLayanan').value.trim();
+        if (!nama) { notif('Nama layanan wajib diisi!', 'err'); return; }
+        if (idx === '') {
+            dataLayanan.push({ nama, deskripsi });
+            notif('✅ Layanan ditambahkan.');
+        } else {
+            dataLayanan[parseInt(idx, 10)] = { nama, deskripsi };
+            notif('✅ Layanan diperbarui.');
+        }
+        saveLocal(KEYS.layanan, dataLayanan);
+        resetFormLayanan();
+        renderLayanan($('#searchLayanan').value);
+    }
+    function editLayanan(idx) {
+        const item = dataLayanan[idx]; if (!item) return;
+        $('#editIndexLayanan').value = idx;
+        $('#namaLayanan').value = item.nama;
+        $('#deskripsiLayanan').value = item.deskripsi || '';
+        $('#btnSimpanLayanan').textContent = 'Perbarui Layanan';
+        $('#btnBatalLayanan').hidden = false;
+        $('#namaLayanan').focus();
+    }
+    function hapusLayanan(idx) {
+        if (!confirm('Hapus layanan ini?')) return;
+        dataLayanan.splice(idx, 1);
+        saveLocal(KEYS.layanan, dataLayanan);
+        renderLayanan($('#searchLayanan').value);
+        notif('🗑️ Layanan dihapus.');
+    }
+
+    /* ===== JADWAL ===== */
+    function renderJadwal(filter) {
+        const list = $('#listJadwal');
+        if (!list) return;
+        const q = (filter || '').toLowerCase().trim();
+        const filtered = dataJadwal.filter(function (item) {
+            if (!q) return true;
+            return (item.nama || '').toLowerCase().includes(q) ||
+                   (item.spesialis || '').toLowerCase().includes(q) ||
+                   (item.hari || '').toLowerCase().includes(q);
+        });
+        if (!filtered.length) {
+            list.innerHTML = '<div class="empty-msg">Belum ada jadwal.</div>';
+            return;
+        }
+        list.innerHTML = filtered.map(function (item) {
+            const i = dataJadwal.indexOf(item);
+            return '<div class="data-item"><div class="info"><b>' + escapeHtml(item.nama) +
+                '</b><span class="badge">' + escapeHtml(item.spesialis) + '</span>' +
+                '<small>📅 ' + escapeHtml(item.hari) + ' • 🕐 ' + escapeHtml(item.mulai) + ' - ' + escapeHtml(item.selesai) + '</small>' +
+                '</div><div><button class="btn-sm btn-edit" data-act="edit-jadwal" data-idx="' + i + '">✏️ Edit</button> ' +
+                '<button class="btn-sm btn-hapus" data-act="hapus-jadwal" data-idx="' + i + '">🗑️ Hapus</button></div></div>';
+        }).join('');
+    }
+    function resetFormJadwal() {
+        $('#editIndexJadwal').value = '';
+        $('#namaDokter').value = '';
+        $('#spesialis').value = '';
+        $('#hari').value = '';
+        $('#jamMulai').value = '';
+        $('#jamSelesai').value = '';
+        $('#btnSimpanJadwal').textContent = 'Tambah Jadwal';
+        $('#btnBatalJadwal').hidden = true;
+    }
+    function simpanJadwal() {
+        const idx = $('#editIndexJadwal').value;
+        const nama = $('#namaDokter').value.trim();
+        const spesialis = $('#spesialis').value.trim();
+        const hari = $('#hari').value.trim();
+        const mulai = $('#jamMulai').value;
+        const selesai = $('#jamSelesai').value;
+        if (!nama || !hari) { notif('Nama & hari wajib!', 'err'); return; }
+        const row = { nama, spesialis, hari, mulai, selesai };
+        if (idx === '') { dataJadwal.push(row); notif('✅ Jadwal ditambahkan.'); }
+        else { dataJadwal[parseInt(idx, 10)] = row; notif('✅ Jadwal diperbarui.'); }
+        saveLocal(KEYS.jadwalAdmin, dataJadwal);
+        resetFormJadwal();
+        renderJadwal($('#searchJadwal').value);
+    }
+    function editJadwal(idx) {
+        const item = dataJadwal[idx]; if (!item) return;
+        $('#editIndexJadwal').value = idx;
+        $('#namaDokter').value = item.nama;
+        $('#spesialis').value = item.spesialis || '';
+        $('#hari').value = item.hari || '';
+        $('#jamMulai').value = item.mulai || '';
+        $('#jamSelesai').value = item.selesai || '';
+        $('#btnSimpanJadwal').textContent = 'Perbarui Jadwal';
+        $('#btnBatalJadwal').hidden = false;
+        $('#namaDokter').focus();
+    }
+    function hapusJadwal(idx) {
+        if (!confirm('Hapus jadwal ini?')) return;
+        dataJadwal.splice(idx, 1);
+        saveLocal(KEYS.jadwalAdmin, dataJadwal);
+        renderJadwal($('#searchJadwal').value);
+        notif('🗑️ Jadwal dihapus.');
+    }
+
+    /* ===== INFO ===== */
+    function renderInfo(filter) {
+        const list = $('#listInfo');
+        if (!list) return;
+        const q = (filter || '').toLowerCase().trim();
+        const filtered = dataInfo.filter(function (item) {
+            if (!q) return true;
+            return (item.nama || '').toLowerCase().includes(q) ||
+                   (item.alamat || '').toLowerCase().includes(q) ||
+                   (item.telepon || '').toLowerCase().includes(q);
+        });
+        if (!filtered.length) {
+            list.innerHTML = '<div class="empty-msg">Belum ada informasi.</div>';
+            return;
+        }
+        list.innerHTML = filtered.map(function (item) {
+            const i = dataInfo.indexOf(item);
+            return '<div class="data-item"><div class="info"><b>' + escapeHtml(item.nama) +
+                '</b><span class="badge">' + escapeHtml(item.telepon || 'umum') + '</span>' +
+                '<small>' + escapeHtml(item.alamat || '-') + '</small></div><div>' +
+                '<button class="btn-sm btn-edit" data-act="edit-info" data-idx="' + i + '">✏️ Edit</button> ' +
+                '<button class="btn-sm btn-hapus" data-act="hapus-info" data-idx="' + i + '">🗑️ Hapus</button></div></div>';
+        }).join('');
+    }
+    function resetFormInfo() {
+        $('#editIndexInfo').value = '';
+        $('#namaRS').value = '';
+        $('#alamatRS').value = '';
+        $('#teleponRS').value = '';
+        $('#btnSimpanInfo').textContent = 'Tambah Informasi';
+        $('#btnBatalInfo').hidden = true;
+    }
+    function simpanInfo() {
+        const idx = $('#editIndexInfo').value;
+        const nama = $('#namaRS').value.trim();
+        const alamat = $('#alamatRS').value.trim();
+        const telepon = $('#teleponRS').value.trim();
+        if (!nama) { notif('Judul wajib!', 'err'); return; }
+        const row = { nama, alamat, telepon };
+        if (idx === '') { dataInfo.push(row); notif('✅ Info ditambahkan.'); }
+        else { dataInfo[parseInt(idx, 10)] = row; notif('✅ Info diperbarui.'); }
+        saveLocal(KEYS.info, dataInfo);
+        resetFormInfo();
+        renderInfo($('#searchInfo').value);
+    }
+    function editInfo(idx) {
+        const item = dataInfo[idx]; if (!item) return;
+        $('#editIndexInfo').value = idx;
+        $('#namaRS').value = item.nama;
+        $('#alamatRS').value = item.alamat || '';
+        $('#teleponRS').value = item.telepon || '';
+        $('#btnSimpanInfo').textContent = 'Perbarui Informasi';
+        $('#btnBatalInfo').hidden = false;
+        $('#namaRS').focus();
+    }
+    function hapusInfo(idx) {
+        if (!confirm('Hapus info ini?')) return;
+        dataInfo.splice(idx, 1);
+        saveLocal(KEYS.info, dataInfo);
+        renderInfo($('#searchInfo').value);
+        notif('🗑️ Info dihapus.');
+    }
+
+    /* ===== CHATBOT ===== */
+    function normalizeChatbot(c) {
+        return {
+            id: c.id,
+            judul: c.judul || c.pertanyaan || '',
+            kategori: c.kategori || 'umum',
+            deskripsi: c.deskripsi || c.jawaban || ''
+        };
+    }
+    function renderChatbot(filter) {
+        const list = $('#listChatbot');
+        if (!list) return;
+        const q = (filter || '').toLowerCase().trim();
+
+        const all = D.getChatbotList().map(normalizeChatbot);
+        const filtered = all.filter(function (item) {
+            if (!q) return true;
+            return (item.judul || '').toLowerCase().includes(q) ||
+                   (item.deskripsi || '').toLowerCase().includes(q) ||
+                   (item.kategori || '').toLowerCase().includes(q);
+        });
+
+        if (!filtered.length) {
+            list.innerHTML = '<div class="empty-msg">Belum ada data chatbot.</div>';
+            return;
+        }
+
+        list.innerHTML = filtered.map(function (item) {
+            return '<div class="data-item"><div class="info"><b>📌 ' + escapeHtml(item.judul) +
+                '</b><span class="badge">' + escapeHtml(item.kategori) + '</span>' +
+                '<small>💬 ' + escapeHtml(item.deskripsi) + '</small></div><div>' +
+                '<button class="btn-sm btn-edit" data-act="edit-chatbot" data-id="' + item.id + '">✏️ Edit</button> ' +
+                '<button class="btn-sm btn-hapus" data-act="hapus-chatbot" data-id="' + item.id + '">🗑️ Hapus</button></div></div>';
+        }).join('');
+    }
+    function resetFormChatbot() {
+        $('#editIndexChatbot').value = '';
+        $('#judulChatbot').value = '';
+        $('#kategoriChatbot').value = 'umum';
+        $('#deskripsiChatbot').value = '';
+        $('#btnSimpanChatbot').textContent = 'Tambah Chatbot';
+        $('#btnBatalChatbot').hidden = true;
+    }
+    function simpanChatbot() {
+        const idField   = $('#editIndexChatbot').value;
+        const judul     = $('#judulChatbot').value.trim();
+        const kategori  = $('#kategoriChatbot').value;
+        const deskripsi = $('#deskripsiChatbot').value.trim();
+
+        if (!judul || !deskripsi) {
+            notif('Judul & deskripsi wajib diisi!', 'err');
+            return;
+        }
+
+        if (idField === '') {
+            const baru = D.addChatbot(judul, deskripsi, kategori);
+            if (!baru) { notif('Gagal menambah chatbot.', 'err'); return; }
+            notif('✅ Chatbot ditambahkan.');
+        } else {
+            const ok = D.updateChatbot(parseInt(idField, 10), judul, deskripsi, kategori);
+            if (!ok) { notif('Gagal memperbarui chatbot.', 'err'); return; }
+            notif('✅ Chatbot diperbarui.');
+        }
+
+        resetFormChatbot();
+        renderChatbot($('#searchChatbot').value);
+    }
+    function editChatbot(id) {
+        const raw = D.getChatbotList().find((c) => c.id === id);
+        if (!raw) return;
+        const item = normalizeChatbot(raw);
+        $('#editIndexChatbot').value = item.id;
+        $('#judulChatbot').value = item.judul;
+        $('#kategoriChatbot').value = item.kategori;
+        $('#deskripsiChatbot').value = item.deskripsi;
+        $('#btnSimpanChatbot').textContent = 'Perbarui Chatbot';
+        $('#btnBatalChatbot').hidden = false;
+        $('#judulChatbot').focus();
+    }
+    function hapusChatbot(id) {
+        const raw = D.getChatbotList().find((c) => c.id === id);
+        if (!raw) return;
+        const item = normalizeChatbot(raw);
+        if (!confirm('Hapus chatbot: "' + item.judul + '"?')) return;
+        if (D.deleteChatbot(id)) {
+            renderChatbot($('#searchChatbot').value);
+            notif('🗑️ Chatbot dihapus.');
+        } else {
+            notif('Gagal menghapus chatbot.', 'err');
+        }
+    }
+
+    /* ============================================================
+       UPLOAD / EXPORT CHATBOT  (BARU)
+       ============================================================ */
+
+    function getTemplateChatbot() {
+        return [
+            { judul: "Jam Buka Puskesmas", kategori: "jadwal", deskripsi: "Puskesmas buka Senin-Jumat, 08.00-16.00 WIB." },
+            { judul: "Cara Daftar Berobat", kategori: "layanan", deskripsi: "Datang ke loket dengan membawa KTP dan BPJS." }
+        ];
+    }
+
+    function downloadFile(content, filename, mime) {
+        const blob = new Blob([content], { type: mime });
+        const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'medichat-data.json';
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-    });
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
 
-    $('#file-import').addEventListener('change', function (e) {
-        var file = e.target.files[0];
-        e.target.value = '';
-        if (!file) return;
-        if (file.size > 1024 * 1024) { toast('File terlalu besar (maks. 1 MB).', 'err'); return; }
+    /* Tombol: Download Template */
+    if ($('#btnTemplate')) {
+        $('#btnTemplate').addEventListener('click', function () {
+            downloadFile(
+                JSON.stringify(getTemplateChatbot(), null, 2),
+                'template-chatbot.json',
+                'application/json'
+            );
+            notif('📄 Template berhasil di-download.');
+        });
+    }
 
-        var reader = new FileReader();
-        reader.onload = function () {
-            try {
-                var clean = D.sanitize(JSON.parse(reader.result));
-                if (!clean) throw new Error('format');
-                if (!confirm('Impor akan menimpa data yang sedang diedit. Lanjutkan?')) return;
-                data = clean;
-                renderAll();
-                setDirty(true);
-                toast('File dimuat. Klik "Simpan Perubahan" untuk menerapkan.');
-            } catch (err) {
-                toast('File JSON tidak valid.', 'err');
+    /* Tombol: Backup Data Chatbot */
+    if ($('#btnExportChatbot')) {
+        $('#btnExportChatbot').addEventListener('click', function () {
+            const data = D.getChatbotList().map(normalizeChatbot);
+            if (!data.length) {
+                notif('Belum ada data untuk di-backup.', 'err');
+                return;
             }
-        };
-        reader.readAsText(file);
+            const clean = data.map(c => ({
+                judul: c.judul,
+                kategori: c.kategori,
+                deskripsi: c.deskripsi
+            }));
+            downloadFile(
+                JSON.stringify(clean, null, 2),
+                'chatbot-backup-' + Date.now() + '.json',
+                'application/json'
+            );
+            notif('💾 Backup berhasil di-download.');
+        });
+    }
+
+    /* Parser CSV sederhana */
+    function parseCSV(text) {
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 2) return [];
+        const delimiter = lines[0].indexOf(';') > -1 ? ';' : ',';
+        const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+        const idxJudul     = headers.findIndex(h => h.includes('judul') || h.includes('pertanyaan'));
+        const idxKategori  = headers.findIndex(h => h.includes('kategori'));
+        const idxDeskripsi = headers.findIndex(h => h.includes('deskripsi') || h.includes('jawaban'));
+        if (idxJudul < 0 || idxDeskripsi < 0) return [];
+        const result = [];
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+            const judul = cols[idxJudul] || '';
+            const kategori = idxKategori >= 0 ? (cols[idxKategori] || 'umum') : 'umum';
+            const deskripsi = cols[idxDeskripsi] || '';
+            if (judul && deskripsi) result.push({ judul, kategori, deskripsi });
+        }
+        return result;
+    }
+
+    /* Handler Upload File */
+    if ($('#fileChatbot')) {
+        $('#fileChatbot').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            e.target.value = '';
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) {
+                notif('File terlalu besar (maks. 2 MB).', 'err');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (ev) {
+                try {
+                    const text = ev.target.result;
+                    let items = [];
+
+                    if (file.name.toLowerCase().endsWith('.json') ||
+                        text.trim().startsWith('[') ||
+                        text.trim().startsWith('{')) {
+                        let parsed = JSON.parse(text);
+                        if (!Array.isArray(parsed)) {
+                            if (parsed.chatbot && Array.isArray(parsed.chatbot)) parsed = parsed.chatbot;
+                            else parsed = [parsed];
+                        }
+                        items = parsed.map(p => ({
+                            judul: (p.judul || p.pertanyaan || '').toString().trim(),
+                            kategori: (p.kategori || 'umum').toString().trim(),
+                            deskripsi: (p.deskripsi || p.jawaban || '').toString().trim()
+                        })).filter(p => p.judul && p.deskripsi);
+                    } else {
+                        items = parseCSV(text);
+                    }
+
+                    if (!items.length) {
+                        notif('Tidak ada data valid di file.', 'err');
+                        return;
+                    }
+
+                    if (!confirm('Ditemukan ' + items.length + ' data chatbot.\n\nOK = TAMBAH ke daftar yang ada.\nCancel = GANTI SEMUA data lama.')) {
+                        if (!confirm('Ganti SEMUA data chatbot dengan data baru? Data lama akan hilang.')) {
+                            return;
+                        }
+                        const lama = D.getChatbotList();
+                        lama.forEach(c => D.deleteChatbot(c.id));
+                    }
+
+                    let sukses = 0;
+                    items.forEach(item => {
+                        const hasil = D.addChatbot(item.judul, item.deskripsi, item.kategori);
+                        if (hasil) sukses++;
+                    });
+
+                    renderChatbot($('#searchChatbot').value);
+                    notif('✅ ' + sukses + ' data chatbot berhasil di-upload.');
+                } catch (err) {
+                    notif('File tidak valid: ' + err.message, 'err');
+                }
+            };
+            reader.readAsText(file);
+        });
+    }
+
+    /* ===== EVENT DELEGATION ===== */
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        const act = btn.dataset.act;
+        const idx = btn.dataset.idx !== undefined ? parseInt(btn.dataset.idx, 10) : null;
+        const id  = btn.dataset.id  !== undefined ? parseInt(btn.dataset.id, 10)  : null;
+
+        if (act === 'edit-layanan')  editLayanan(idx);
+        if (act === 'hapus-layanan') hapusLayanan(idx);
+        if (act === 'edit-jadwal')   editJadwal(idx);
+        if (act === 'hapus-jadwal')  hapusJadwal(idx);
+        if (act === 'edit-info')     editInfo(idx);
+        if (act === 'hapus-info')    hapusInfo(idx);
+        if (act === 'edit-chatbot')  editChatbot(id);
+        if (act === 'hapus-chatbot') hapusChatbot(id);
     });
 
-    $('#btn-reset').addEventListener('click', function () {
-        if (!confirm('Kembalikan semua data ke versi awal? Perubahan yang pernah disimpan akan hilang.')) return;
-        data = D.reset();
-        renderAll();
-        setDirty(false);
-        toast('Data dikembalikan ke versi awal.');
-    });
+    /* ===== TOMBOL ===== */
+    if ($('#btnSimpanLayanan')) $('#btnSimpanLayanan').addEventListener('click', simpanLayanan);
+    if ($('#btnBatalLayanan'))  $('#btnBatalLayanan').addEventListener('click', resetFormLayanan);
+    if ($('#btnSimpanJadwal'))  $('#btnSimpanJadwal').addEventListener('click', simpanJadwal);
+    if ($('#btnBatalJadwal'))   $('#btnBatalJadwal').addEventListener('click', resetFormJadwal);
+    if ($('#btnSimpanInfo'))    $('#btnSimpanInfo').addEventListener('click', simpanInfo);
+    if ($('#btnBatalInfo'))     $('#btnBatalInfo').addEventListener('click', resetFormInfo);
+    if ($('#btnSimpanChatbot')) $('#btnSimpanChatbot').addEventListener('click', simpanChatbot);
+    if ($('#btnBatalChatbot'))  $('#btnBatalChatbot').addEventListener('click', resetFormChatbot);
 
-    window.addEventListener('beforeunload', function (e) {
-        if (dirty) { e.preventDefault(); e.returnValue = ''; }
-    });
+    /* ===== SEARCH ===== */
+    if ($('#searchLayanan')) $('#searchLayanan').addEventListener('input', (e) => renderLayanan(e.target.value));
+    if ($('#searchJadwal'))  $('#searchJadwal').addEventListener('input',  (e) => renderJadwal(e.target.value));
+    if ($('#searchInfo'))    $('#searchInfo').addEventListener('input',    (e) => renderInfo(e.target.value));
+    if ($('#searchChatbot')) $('#searchChatbot').addEventListener('input', (e) => renderChatbot(e.target.value));
 
+    /* ===== RENDER SEMUA ===== */
+    function renderSemua() {
+        renderLayanan('');
+        renderJadwal('');
+        renderInfo('');
+        renderChatbot('');
+    }
+
+    /* ===== INIT ===== */
     showView();
 })();
